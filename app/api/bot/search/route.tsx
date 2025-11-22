@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Query must be a non-empty string' }, { status: 400 });
     }
   
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
     // 1. Generate a clear search phrase WITHOUT date terms
     let searchPhrase = await convertToSearchPhrase(openai, query);

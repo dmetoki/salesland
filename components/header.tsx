@@ -1,7 +1,7 @@
 import { Fragment } from "react/jsx-runtime";
 import Image from "next/image";
 import { ModeToggle } from "@/components/mode-toggler";
-import CalendarDropdown from "@/components/calendar-dropdown";
+// import CalendarDropdown from "@/components/calendar-dropdown";
 import NavUser from "./nav-user";
 
 export default async function Header() {
@@ -20,7 +20,7 @@ export default async function Header() {
         </div>
         <div className="flex-1 flex items-center justify-center"></div>
         <div className="flex items-center gap-2">
-          <CalendarDropdown/>
+          {/* <CalendarDropdown/> */}
           <ModeToggle />
           <NavUser />
         </div>

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   let chosenModel: LanguageModel;
   
   if (supportedModels?.xai.includes(model)) {
-    const xaiProvider = createXai({baseURL: 'https://api.x.ai/v1', apiKey: process.env.XAI_API_KEY});
+    const xaiProvider = createXai({baseURL: 'https://api.x.ai/v1', apiKey: process.env.XAI_API_KEY || ''});
     if (!process.env.XAI_API_KEY) {
         return new Response(
             JSON.stringify({ error: 'XAI_API_KEY environment variable is not defined' }),
