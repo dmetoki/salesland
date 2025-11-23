@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { CheckIcon, GlobeIcon } from "lucide-react";
+// import { CheckIcon, GlobeIcon } from "lucide-react";
 import { Fragment } from "react/jsx-runtime";
 import { useChat } from '@ai-sdk/react';
-import { PromptInput, PromptInputActionAddAttachments, PromptInputActionMenu, PromptInputActionMenuContent, PromptInputActionMenuTrigger, PromptInputAttachment, PromptInputAttachments, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputMessage, PromptInputProvider, PromptInputSpeechButton, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
+import { PromptInput, PromptInputAttachment, PromptInputAttachments, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputMessage, PromptInputProvider, PromptInputSpeechButton, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { Message, MessageAvatar } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
-import { ModelSelector, ModelSelectorContent, ModelSelectorEmpty, ModelSelectorGroup, ModelSelectorInput, ModelSelectorItem, ModelSelectorList, ModelSelectorLogo, ModelSelectorLogoGroup, ModelSelectorName, ModelSelectorTrigger } from '@/components/ai-elements/model-selector';
+// import { ModelSelector, ModelSelectorContent, ModelSelectorEmpty, ModelSelectorGroup, ModelSelectorInput, ModelSelectorItem, ModelSelectorList, ModelSelectorLogo, ModelSelectorLogoGroup, ModelSelectorName, ModelSelectorTrigger } from '@/components/ai-elements/model-selector';
 import TextConversation from '@/components/chat/text-conversation';
 import HistoricalEvolution from '@/components/chat/historical-evolution';
 import PostsList from '@/components/chat/posts-list';
@@ -250,12 +250,12 @@ export default function Hausbot() {
                                 </PromptInputBody>
                                 <PromptInputFooter>
                                     <PromptInputTools>
-                                        <PromptInputActionMenu>
+                                        {/* <PromptInputActionMenu>
                                             <PromptInputActionMenuTrigger />
                                             <PromptInputActionMenuContent>
                                                 <PromptInputActionAddAttachments />
                                             </PromptInputActionMenuContent>
-                                        </PromptInputActionMenu>
+                                        </PromptInputActionMenu> */}
                                         <PromptInputSpeechButton
                                             textareaRef={textareaRef}
                                             onTranscriptionChange={() => {}}
@@ -277,10 +277,10 @@ export default function Hausbot() {
                                                 }
                                             }}
                                         />
-                                        <PromptInputButton>
+                                        {/* <PromptInputButton>
                                             <GlobeIcon size={16} /> <span>Search</span>
-                                        </PromptInputButton>
-                                        <ModelSelector
+                                        </PromptInputButton> */}
+                                        {/* <ModelSelector
                                             onOpenChange={setModelSelectorOpen}
                                             open={modelSelectorOpen}
                                         >
@@ -341,7 +341,7 @@ export default function Hausbot() {
                                                     ))}
                                                 </ModelSelectorList>
                                             </ModelSelectorContent>
-                                        </ModelSelector>
+                                        </ModelSelector> */}
                                     </PromptInputTools>
                                     <PromptInputSubmit status={status} />
                                 </PromptInputFooter>
