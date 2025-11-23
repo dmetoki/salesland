@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  async redirects() {
+    return [
+      {
+        source: '/',       // Root path
+        destination: '/hausbot', // Redirect to this path
+        permanent: false,  // true = 308 permanent redirect, false = 307 temporary
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
