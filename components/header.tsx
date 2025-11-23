@@ -19,7 +19,7 @@ export default async function Header() {
           <span className="font-semibold leading-tight mt-0.5">HAUSBOARD</span>
         </div>
         <div className="flex-1 flex items-center justify-center"></div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {/* <CalendarDropdown/> */}
           <ModeToggle />
           <NavUser />

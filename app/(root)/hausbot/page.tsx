@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 // import { CheckIcon, GlobeIcon } from "lucide-react";
 import { Fragment } from "react/jsx-runtime";
 import { useChat } from '@ai-sdk/react';
-import { PromptInput, PromptInputAttachment, PromptInputAttachments, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputMessage, PromptInputProvider, PromptInputSpeechButton, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
+import { PromptInput, PromptInputAttachment, PromptInputAttachments, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputMessage, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { Message, MessageAvatar } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
@@ -12,7 +12,8 @@ import { Loader } from "@/components/ai-elements/loader";
 import TextConversation from '@/components/chat/text-conversation';
 import HistoricalEvolution from '@/components/chat/historical-evolution';
 import PostsList from '@/components/chat/posts-list';
-
+import { MicIcon, Square } from 'lucide-react';
+import { useUser } from "@clerk/nextjs";
 
 type HistoricalEvolutionProps = {
   title: string,
@@ -103,6 +104,7 @@ const models = [
 ];
 
 export default function Hausbot() {
+    const { user } = useUser();
     
     const stopRecordingAndGetBlob = (): Promise<Blob> => {
         return new Promise((resolve, reject) => {
@@ -156,23 +158,11 @@ export default function Hausbot() {
             console.error('Microphone access denied or error:', err);
         }
     };
-    
-    const user = {
-        id: "placeholder",
-        firstName: "Guest",
-        lastName: "User",
-        emailAddresses: [
-            { emailAddress: "guest@example.com" }
-        ],
-        username: "guest",
-        ImageUrl: "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ29vZ2xlL2ltZ18ydkhGUE43ZkI4d2pBWERxVm9FeDNSUVF0OUMifQ"
-    };
-
     const { messages, status, sendMessage } = useChat();
     const [model, setModel] = useState<string>(models[0].id);
-    const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+    // const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const selectedModelData = models.find((m) => m.id === model);
+    // const selectedModelData = models.find((m) => m.id === model);
     const handleSubmit = (message: PromptInputMessage) => {
         const hasText = Boolean(message.text);
         const hasAttachments = Boolean(message.files?.length);
@@ -199,7 +189,7 @@ export default function Hausbot() {
                                         return (
                                             <Message from={message.role} key={message.id} className="flex items-start">
                                                 <MessageAvatar
-                                                    src={message.role === "user" && user ? user.ImageUrl : "https://github.com/haydenbleasel.png"}
+                                                    src={message.role === "user" && user ? user.imageUrl : "https://github.com/haydenbleasel.png"}
                                                     name={message.role === "user" && user ? user.firstName || "User" : "Hausbot"}
                                                     className="mt-2 border border-border rounded-full"
                                                 />
@@ -256,9 +246,8 @@ export default function Hausbot() {
                                                 <PromptInputActionAddAttachments />
                                             </PromptInputActionMenuContent>
                                         </PromptInputActionMenu> */}
-                                        <PromptInputSpeechButton
-                                            textareaRef={textareaRef}
-                                            onTranscriptionChange={() => {}}
+                                        <PromptInputButton
+                                            variant="outline"
                                             onClick={async () => {
                                                 if (!recording) {
                                                     await startRecording();
@@ -276,7 +265,16 @@ export default function Hausbot() {
                                                     }
                                                 }
                                             }}
-                                        />
+                                            className='cursor-pointer'
+                                        >
+                                            {
+                                                recording ? (
+                                                    <Square className="size-4" />
+                                                    ) : (
+                                                    <MicIcon className="size-4" />
+                                                )
+                                            }
+                                        </PromptInputButton>
                                         {/* <PromptInputButton>
                                             <GlobeIcon size={16} /> <span>Search</span>
                                         </PromptInputButton> */}
@@ -343,7 +341,11 @@ export default function Hausbot() {
                                             </ModelSelectorContent>
                                         </ModelSelector> */}
                                     </PromptInputTools>
-                                    <PromptInputSubmit status={status} />
+                                    <PromptInputSubmit
+                                        status={status}
+                                        variant="outline"
+                                        className='cursor-pointer'
+                                    />
                                 </PromptInputFooter>
                             </PromptInput>
                         </PromptInputProvider>
