@@ -4,6 +4,19 @@ import OpenAI from "openai";
 
 let client: MongoClient | null = null;
 
+interface ConversationMessage {
+  role: string;
+  text: string;
+  createdAt: Date;
+}
+
+interface Conversation {
+  _id: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+  messages: ConversationMessage[];
+}
+
 export async function getClient() {
   const uri = `${process.env.MONGODB_URI || ''}`;
   if (!client) {
@@ -113,21 +126,7 @@ function isToolMessage(msg: UIMessage) {
   );
 }
 
-interface ConversationMessage {
-  role: string;
-  text: string;
-  createdAt: Date;
-}
-
-interface Conversation {
-  _id: ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
-  messages: ConversationMessage[];
-}
-
-export async function getConversationWithoutTools(messages: UIMessage[]) {
-  const conversationId = '650c8d4f2f1b2c001234abcd';
+export async function getConversationWithoutTools(messages: UIMessage[], conversationId: string) {
   const client = await getClient();
   const db = client.db('hausboard');
   const collection = db.collection<Conversation>("conversations");

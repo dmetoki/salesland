@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { UIMessage } from 'ai';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -41,3 +42,23 @@ export function formatYYYYMMDDToDate(lang: string, input: string): string {
   })
 }
 
+export function generateObjectId(): string {
+  const timestamp = Math.floor(Date.now() / 1000).toString(16); // 4 bytes timestamp
+  const random = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16))
+    .join(''); // 16 random hex chars
+  return (timestamp + random).slice(0, 24); // ensure 24 chars
+}
+
+export function getLatestUserMessage(messages: UIMessage[]): UIMessage | undefined {
+    return [...messages].reverse().find(m => m.role === 'user');
+  }
+
+export  function getLatestUserQuery(messages: UIMessage[]): string {
+    const lastUserMsg = getLatestUserMessage(messages);
+    if (!lastUserMsg) return '';
+    return lastUserMsg.parts
+    .filter(p => p.type === 'text')
+    .map(p => p.text)
+    .join(' ')
+    .trim();
+  }

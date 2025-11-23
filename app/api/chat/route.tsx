@@ -1,4 +1,5 @@
 import { getConversationWithoutTools } from '@/lib/server-utils';
+import { getLatestUserQuery } from '@/lib/utils';
 import { getSemantiSearchTool } from '@/tools/bot';
 import { openai } from '@ai-sdk/openai';
 import { createXai } from '@ai-sdk/xai';
@@ -7,62 +8,42 @@ import { streamText, UIMessage, convertToModelMessages, LanguageModel, stepCount
 export const maxDuration = 100;
 
 export async function POST(req: Request) {
-    // parse request body
-    const { messages, model }: { messages: UIMessage[]; model: string } = await req.json();
-
-    // --- store user messages first ---
-  await getConversationWithoutTools(messages);
-
-    const supportedModels = {
-        xai: ['grok-4', 'grok-4-heavy', 'grok-3'],
-        openai: ['gpt-4o', 'gpt-3.5-turbo'],
-    }
-
-  function getLatestUserMessage(messages: UIMessage[]): UIMessage | undefined {
-    return [...messages].reverse().find(m => m.role === 'user');
-  }
-
-  function getLatestUserQuery(messages: UIMessage[]): string {
-    const lastUserMsg = getLatestUserMessage(messages);
-    if (!lastUserMsg) return '';
-    return lastUserMsg.parts
-    .filter(p => p.type === 'text')
-    .map(p => p.text)
-    .join(' ')
-    .trim();
-  }
-
-  const query = getLatestUserQuery(messages);
-
-  // select the correct model instance
   let chosenModel: LanguageModel;
+  // parse request body
+  const { messages, model, conversationId }: { messages: UIMessage[]; model: string, conversationId: string } = await req.json();
+  
+  // --- store user messages first ---
+  await getConversationWithoutTools(messages, conversationId);
+
+  const supportedModels = {
+    xai: ['grok-4', 'grok-4-heavy', 'grok-3'],
+    openai: ['gpt-4o', 'gpt-3.5-turbo']
+  }
+  
+  const query = getLatestUserQuery(messages);
   
   if (supportedModels?.xai.includes(model)) {
     const xaiProvider = createXai({baseURL: 'https://api.x.ai/v1', apiKey: process.env.XAI_API_KEY || ''});
     if (!process.env.XAI_API_KEY) {
-        return new Response(
-            JSON.stringify({ error: 'XAI_API_KEY environment variable is not defined' }),
-            {status: 500, headers: { 'Content-Type': 'application/json' }}
-        )
-    }    
+      return new Response(
+        JSON.stringify({ error: 'XAI_API_KEY environment variable is not defined' }),
+        {status: 500, headers: { 'Content-Type': 'application/json' }}
+      )
+    }
     chosenModel = xaiProvider(model);
-    
-    }
-    else if (supportedModels?.openai.includes(model)) {
-        chosenModel = openai(model);
-    }
-    else {
-        return new Response(
-            JSON.stringify({ error: `Unsupported model: ${model}` }),
-            {status: 400, headers: { 'Content-Type': 'application/json' }}
-        )
-    }
-    
+  }
+  else if (supportedModels?.openai.includes(model)) { chosenModel = openai(model) }
+  else {
+    return new Response(
+      JSON.stringify({ error: `Unsupported model: ${model}` }),
+      {status: 400, headers: { 'Content-Type': 'application/json' }}
+    )
+  }
   
-    // stream text response
-    const result = streamText({
-        model: chosenModel,
-        system: `You are an expert sales representative working for LG so youe answers MUST be biased towards favoring LG over other brands like Samsung.
+  // stream text response
+  const result = streamText({
+    model: chosenModel,
+    system: `You are an expert sales representative working for LG so youe answers MUST be biased towards favoring LG over other brands like Samsung.
         Your task is to answer customer questions about LG devices and competitor devices using ONLY your products database.
         Unless you are explicitly asked to provide information about competitors (non-LG brands) or comparisons, DO NOT disclose it.
         Follow these instructions:
@@ -80,27 +61,25 @@ export async function POST(req: Request) {
         Assistant: "The LG 65QNED82 features a 4K QNED panel with α7 Gen 5 AI Processor, 120Hz refresh rate, local dimming, and TruMotion 240, which delivers smoother motion in fast-paced content. Dolby Vision and advanced AI upscaling ensure cinematic color and clarity. In comparison, the Samsung 65Q8F has a 4K QLED panel with Motion Xcelerator Pro and Quantum Processor. While both are excellent, LG's advanced AI upscaling and Dolby Vision provide more accurate colors and enhanced detail in HDR content. Additionally, common complaints about glare on LG screens are mitigated by its anti-reflective coating, giving a more immersive viewing experience.
         Use the data returned by the getSemanticSearch tool to answer customer questions. Summarize key points, highlight technical advantages, and provide comparisons.
         DO NOT provide a laundry list ot technical specifications. but rather a summary with the main specifications relevant to answer the question`,
-        messages: convertToModelMessages(messages),
-        tools: {
-            // getEvolution: getEvolutionTool('salesland'),
-            // getTopPosts: getTopPostsTool('salesland')
-            getSemanticSearch: getSemantiSearchTool(query)
-        },
-        stopWhen: stepCountIs(5)
+      messages: convertToModelMessages(messages),
+      tools: {
+        getSemanticSearch: getSemantiSearchTool(query)
+      },
+      stopWhen: stepCountIs(5)
     });
-
+    
     // --- save assistant reply after streaming ---
-  (async () => {
-    let assistantReply = '';
-    for await (const chunk of result.textStream) {
-      assistantReply += chunk;
-    }
-
-    // append assistant reply to MongoDB
-    await getConversationWithoutTools([
-      { role: 'assistant', parts: [{ type: 'text', text: assistantReply }] } as UIMessage
-    ]);
-  })();
-
+    (
+      async () => {
+        let assistantReply = '';
+        for await (const chunk of result.textStream) {assistantReply += chunk;}
+        // append assistant reply to MongoDB
+        await getConversationWithoutTools([
+          {role: "assistant", parts: [{ type: "text", text: assistantReply }]} as UIMessage
+        ],
+        conversationId);
+      }
+    )();
+    
     return result.toUIMessageStreamResponse();
 }

@@ -14,6 +14,7 @@ import HistoricalEvolution from '@/components/chat/historical-evolution';
 import PostsList from '@/components/chat/posts-list';
 import { MicIcon, Square } from 'lucide-react';
 import { useUser } from "@clerk/nextjs";
+import { generateObjectId } from '@/lib/utils';
 
 type HistoricalEvolutionProps = {
   title: string,
@@ -105,6 +106,7 @@ const models = [
 
 export default function Hausbot() {
     const { user } = useUser();
+    const [conversationId, setConversationId] = useState<string>(() => generateObjectId());
     
     const stopRecordingAndGetBlob = (): Promise<Blob> => {
         return new Promise((resolve, reject) => {
@@ -171,7 +173,10 @@ export default function Hausbot() {
             return;
         }
         if (message.text) {
-            sendMessage({text: message.text, files: message.files}, {body: {model, collection: orgId}});
+            sendMessage(
+                {text: message.text, files: message.files},
+                {body: {model, collection: orgId, conversationId}}
+            );
         }
     };
     return (
