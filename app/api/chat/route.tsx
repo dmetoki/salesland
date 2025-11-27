@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   let chosenModel: LanguageModel;
   // parse request body
   const { messages, model, conversationId }: { messages: UIMessage[]; model: string, conversationId: string } = await req.json();
-  
+
   // --- store user messages first ---
   await getConversationWithoutTools(messages, conversationId);
 
@@ -19,15 +19,15 @@ export async function POST(req: Request) {
     xai: ['grok-4', 'grok-4-heavy', 'grok-3'],
     openai: ['gpt-4o', 'gpt-3.5-turbo']
   }
-  
+
   const query = getLatestUserQuery(messages);
-  
+
   if (supportedModels?.xai.includes(model)) {
-    const xaiProvider = createXai({baseURL: 'https://api.x.ai/v1', apiKey: process.env.XAI_API_KEY || ''});
+    const xaiProvider = createXai({ baseURL: 'https://api.x.ai/v1', apiKey: process.env.XAI_API_KEY || '' });
     if (!process.env.XAI_API_KEY) {
       return new Response(
         JSON.stringify({ error: 'XAI_API_KEY environment variable is not defined' }),
-        {status: 500, headers: { 'Content-Type': 'application/json' }}
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
     chosenModel = xaiProvider(model);
@@ -36,10 +36,10 @@ export async function POST(req: Request) {
   else {
     return new Response(
       JSON.stringify({ error: `Unsupported model: ${model}` }),
-      {status: 400, headers: { 'Content-Type': 'application/json' }}
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     )
   }
-  
+
   // stream text response
   const result = streamText({
     model: chosenModel,
@@ -61,25 +61,25 @@ export async function POST(req: Request) {
         Assistant: "The LG 65QNED82 features a 4K QNED panel with α7 Gen 5 AI Processor, 120Hz refresh rate, local dimming, and TruMotion 240, which delivers smoother motion in fast-paced content. Dolby Vision and advanced AI upscaling ensure cinematic color and clarity. In comparison, the Samsung 65Q8F has a 4K QLED panel with Motion Xcelerator Pro and Quantum Processor. While both are excellent, LG's advanced AI upscaling and Dolby Vision provide more accurate colors and enhanced detail in HDR content. Additionally, common complaints about glare on LG screens are mitigated by its anti-reflective coating, giving a more immersive viewing experience.
         Use the data returned by the getSemanticSearch tool to answer customer questions. Summarize key points, highlight technical advantages, and provide comparisons.
         DO NOT provide a laundry list ot technical specifications. but rather a summary with the main specifications relevant to answer the question`,
-      messages: convertToModelMessages(messages),
-      tools: {
-        getSemanticSearch: getSemantiSearchTool(query)
-      },
-      stopWhen: stepCountIs(5)
-    });
-    
-    // --- save assistant reply after streaming ---
-    (
-      async () => {
-        let assistantReply = '';
-        for await (const chunk of result.textStream) {assistantReply += chunk;}
-        // append assistant reply to MongoDB
-        await getConversationWithoutTools([
-          {role: "assistant", parts: [{ type: "text", text: assistantReply }]} as UIMessage
-        ],
+    messages: convertToModelMessages(messages),
+    tools: {
+      getSemanticSearch: getSemantiSearchTool(query)
+    },
+    stopWhen: stepCountIs(5)
+  });
+
+  // --- save assistant reply after streaming ---
+  (
+    async () => {
+      let assistantReply = '';
+      for await (const chunk of result.textStream) { assistantReply += chunk; }
+      // append assistant reply to MongoDB
+      await getConversationWithoutTools([
+        { role: "assistant", parts: [{ type: "text", text: assistantReply }] } as UIMessage
+      ],
         conversationId);
-      }
-    )();
-    
-    return result.toUIMessageStreamResponse();
+    }
+  )();
+
+  return result.toUIMessageStreamResponse();
 }

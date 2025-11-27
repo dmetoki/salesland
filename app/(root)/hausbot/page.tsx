@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 // import { CheckIcon, GlobeIcon } from "lucide-react";
 import { Fragment } from "react/jsx-runtime";
 import { useChat } from '@ai-sdk/react';
-import { PromptInput, PromptInputAttachment, PromptInputAttachments, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputMessage, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
+import { PromptInputMessage, PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { Message, MessageAvatar } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
@@ -12,173 +12,153 @@ import { Loader } from "@/components/ai-elements/loader";
 import TextConversation from '@/components/chat/text-conversation';
 import HistoricalEvolution from '@/components/chat/historical-evolution';
 import PostsList from '@/components/chat/posts-list';
-import { MicIcon, Square } from 'lucide-react';
+// import { MicIcon, Square } from 'lucide-react';
 import { useUser } from "@clerk/nextjs";
 import { generateObjectId } from '@/lib/utils';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { HausbotPromptInput } from '@/components/chat/multimodal-prompt-input';
+import { DefaultChatTransport, FileUIPart } from 'ai';
 
 type HistoricalEvolutionProps = {
-  title: string,
-  description: string,
-  data: {
-      date: string;
-      volume: {
-        positive: number;
-        neutral: number;
-        negative: number;
-      };
-      reach: {
-        positive: number;
-        neutral: number;
-        negative: number;
-      };
+    title: string,
+    description: string,
+    data: {
+        date: string;
+        volume: {
+            positive: number;
+            neutral: number;
+            negative: number;
+        };
+        reach: {
+            positive: number;
+            neutral: number;
+            negative: number;
+        };
     }[];
-  totals?: {
-    volume: number;
-    reach: number;
-    engagement: number;
-  }
+    totals?: {
+        volume: number;
+        reach: number;
+        engagement: number;
+    }
 };
 
 type PostsListProps = {
-  _id: string;
-  url: string;
-  published: string; // e.g. "20250723"
-  title: string;
-  content: string;
-  reach: number;
-  sentiment: number;
-  source_type: string;
-  dimension: string;
-  stakeholder: string;
-  speaker: string | null;
-  is_owned: boolean;
-  author: {
-    id: string;
-    name: string;
-    short_name: string;
-    image_url?: string;
-  };
-  engagement: {
-    total: number;
-    num_comments: number;
-    page_views: number;
-    unique_visitors: number;
-  }
+    _id: string;
+    url: string;
+    published: string; // e.g. "20250723"
+    title: string;
+    content: string;
+    reach: number;
+    sentiment: number;
+    source_type: string;
+    dimension: string;
+    stakeholder: string;
+    speaker: string | null;
+    is_owned: boolean;
+    author: {
+        id: string;
+        name: string;
+        short_name: string;
+        image_url?: string;
+    };
+    engagement: {
+        total: number;
+        num_comments: number;
+        page_views: number;
+        unique_visitors: number;
+    }
 };
 
 const models = [
-  {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    chef: "OpenAI",
-    chefSlug: "openai",
-    providers: ["openai", "azure"],
-  },
-  {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    chef: "OpenAI",
-    chefSlug: "openai",
-    providers: ["openai", "azure"],
-  },
-  {
-    id: "claude-opus-4-20250514",
-    name: "Claude 4 Opus",
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    id: "claude-sonnet-4-20250514",
-    name: "Claude 4 Sonnet",
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    id: "gemini-2.0-flash-exp",
-    name: "Gemini 2.0 Flash",
-    chef: "Google",
-    chefSlug: "google",
-    providers: ["google"],
-  },
+    {
+        id: "gpt-4o",
+        name: "GPT-4o",
+        chef: "OpenAI",
+        chefSlug: "openai",
+        providers: ["openai", "azure"],
+    },
+    {
+        id: "gpt-4o-mini",
+        name: "GPT-4o Mini",
+        chef: "OpenAI",
+        chefSlug: "openai",
+        providers: ["openai", "azure"],
+    },
+    {
+        id: "claude-opus-4-20250514",
+        name: "Claude 4 Opus",
+        chef: "Anthropic",
+        chefSlug: "anthropic",
+        providers: ["anthropic", "azure", "google", "amazon-bedrock"],
+    },
+    {
+        id: "claude-sonnet-4-20250514",
+        name: "Claude 4 Sonnet",
+        chef: "Anthropic",
+        chefSlug: "anthropic",
+        providers: ["anthropic", "azure", "google", "amazon-bedrock"],
+    },
+    {
+        id: "gemini-2.0-flash-exp",
+        name: "Gemini 2.0 Flash",
+        chef: "Google",
+        chefSlug: "google",
+        providers: ["google"],
+    },
 ];
 
 export default function Hausbot() {
     const { user } = useUser();
     const [conversationId, setConversationId] = useState<string>(() => generateObjectId());
-    
-    const stopRecordingAndGetBlob = (): Promise<Blob> => {
-        return new Promise((resolve, reject) => {
-            if (!mediaRecorderRef.current) return reject("No active recorder");
-            mediaRecorderRef.current.onstop = () => {
-                const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-                audioChunksRef.current = []; // reset for next recording
-                resolve(blob);
-            };
-            mediaRecorderRef.current.stop();
-            setRecording(false);
-        });
-    };
-    
-    const [recording, setRecording] = useState(false);
-    const [, setUploading] = useState(false);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
-
-    // start recording
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
-            audioChunksRef.current = [];
-            mediaRecorderRef.current.ondataavailable = (e) => {
-                audioChunksRef.current.push(e.data);
-            };
-            mediaRecorderRef.current.onstop = async () => {
-                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                // send to API
-                setUploading(true);
-                try {
-                    const formData = new FormData();
-                    formData.append('audio', blob, 'recording.webm');
-                    const res = await fetch(`http://localhost:3000/api/transcription`, {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    if (!res.ok) throw new Error('Upload failed');
-                } catch (err) {
-                    console.error('Upload error:', err);
-                } finally {
-                    setUploading(false);
-                }
-            };
-            mediaRecorderRef.current.start();
-            setRecording(true);
-        } catch (err) {
-            console.error('Microphone access denied or error:', err);
-        }
-    };
-    const { messages, status, sendMessage } = useChat();
+    const { messages, status, sendMessage } = useChat({
+        transport: new DefaultChatTransport({
+            api: "/api/chat"
+        }),
+        id: conversationId
+    });
     const [model, setModel] = useState<string>(models[0].id);
     // const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     // const selectedModelData = models.find((m) => m.id === model);
-    const handleSubmit = (message: PromptInputMessage) => {
-        const hasText = Boolean(message.text);
-        const hasAttachments = Boolean(message.files?.length);
-        const orgId = '';
-        if (!(hasText || hasAttachments)) {
-            return;
-        }
-        if (message.text) {
-            sendMessage(
-                {text: message.text, files: message.files},
-                {body: {model, collection: orgId, conversationId}}
-            );
+    const { recording, startRecording, stopRecordingAndGetBlob, setUploading } = useAudioRecorder();
+
+    const handleMicClick = async () => {
+        if (!recording) {
+            await startRecording();
+        } else {
+            const audioBlob = await stopRecordingAndGetBlob();
+
+            // send to transcription API
+            setUploading(true);
+            try {
+                const formData = new FormData();
+                formData.append("audio", audioBlob, "recording.webm");
+                const res = await fetch("/api/transcription", { method: "POST", body: formData });
+                const data = await res.json();
+                const text = data.text || "";
+                if (text) {
+                    sendMessage({ text }, { body: { model, collection: "", conversationId } });
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setUploading(false);
+            }
         }
     };
+    const handleSubmit = (message: PromptInputMessage) => {
+        const orgId = '';
+        if (!message.text && (!message.files || message.files.length === 0)) { return; }
+
+        sendMessage(
+            {
+                text: message.text || '',
+                files: message.files
+            },
+            { body: { model, collection: orgId, conversationId } }
+        );
+    };
+
     return (
         <Fragment>
             <div className="relative min-h-screen">
@@ -191,6 +171,59 @@ export default function Hausbot() {
                                         const hasBlockingTool = message.parts.some(
                                             (p) => p.type.startsWith('tool-') && p.type !== 'tool-getSemanticSearch'
                                         );
+
+                                        const renderParts = () => {
+                                            const parts: any[] = [];
+                                            let currentFiles: FileUIPart[] = [];
+                                            let currentText = "";
+
+                                            message.parts.forEach((part, i) => {
+                                                if (part.type === 'file') {
+                                                    currentFiles.push(part);
+                                                } else if (part.type === 'text') {
+                                                    if (!hasBlockingTool) {
+                                                        currentText += part.text;
+                                                    }
+                                                } else {
+                                                    // Flush text/files if any
+                                                    if (currentFiles.length > 0 || currentText) {
+                                                        parts.push(
+                                                            <TextConversation
+                                                                key={`text-${i}`}
+                                                                id={i}
+                                                                data={{ role: message.role, text: currentText, files: currentFiles }}
+                                                            />
+                                                        );
+                                                        currentFiles = [];
+                                                        currentText = "";
+                                                    }
+
+                                                    if (part.type === 'tool-getEvolution') {
+                                                        const output = part.output as HistoricalEvolutionProps;
+                                                        if (part.state !== 'output-available') parts.push(<Loader key={i} />);
+                                                        else parts.push(<HistoricalEvolution key={i} id={i} data={output} />);
+                                                    } else if (part.type === 'tool-getTopPosts') {
+                                                        const top_posts_output = [(part.output as PostsListProps)];
+                                                        if (part.state !== 'output-available') parts.push(<Loader key={i} />);
+                                                        else parts.push(<PostsList key={i} id={i} data={top_posts_output} />);
+                                                    }
+                                                }
+                                            });
+
+                                            // Flush remaining
+                                            if (currentFiles.length > 0 || currentText) {
+                                                parts.push(
+                                                    <TextConversation
+                                                        key={`text-end`}
+                                                        id={message.parts.length}
+                                                        data={{ role: message.role, text: currentText, files: currentFiles }}
+                                                    />
+                                                );
+                                            }
+
+                                            return parts;
+                                        };
+
                                         return (
                                             <Message from={message.role} key={message.id} className="flex items-start">
                                                 <MessageAvatar
@@ -198,32 +231,16 @@ export default function Hausbot() {
                                                     name={message.role === "user" && user ? user.firstName || "User" : "Hausbot"}
                                                     className="mt-2 border border-border rounded-full"
                                                 />
-                                                {
-                                                    message.parts.length > 0 ? (
-                                                        message.parts.map((part, i) => {
-                                                            switch (part.type) {
-                                                                case 'text':
-                                                                    return !hasBlockingTool && (
-                                                                        <TextConversation key={i} id={i} data={{role: message.role, text: part.text}} />
-                                                                    )
-                                                                case 'tool-getEvolution':
-                                                                    const output = part.output as HistoricalEvolutionProps;
-                                                                    if (part.state !== 'output-available') return <Loader key={i} />;
-                                                                    return <HistoricalEvolution key={i} id={i} data={output} />;
-                                                                case 'tool-getTopPosts':
-                                                                    const top_posts_output = [(part.output as PostsListProps)];
-                                                                    if (part.state !== 'output-available') return <Loader key={i} />;
-                                                                    return <PostsList key={i} id={i} data={top_posts_output} />;
-                                                                default: return null;
-                                                            }
-                                                        })
-                                                    )
-                                                    : message.role === 'assistant' && (
-                                                        <div className="flex items-center justify-center w-16 h-6">
-                                                            <Loader />
-                                                        </div>
-                                                    )
-                                                }
+                                                <div className={`flex flex-col gap-2 flex-1 min-w-0 ${message.role === 'user' ? 'items-start' : 'items-end'}`}>
+                                                    {
+                                                        message.parts.length > 0 ? renderParts()
+                                                            : message.role === 'assistant' && (
+                                                                <div className="flex items-center justify-center w-16 h-6">
+                                                                    <Loader />
+                                                                </div>
+                                                            )
+                                                    }
+                                                </div>
                                             </Message>
                                         )
                                     })
@@ -233,126 +250,17 @@ export default function Hausbot() {
                         </Conversation>
                     </div>
                 </div>
-                <footer className="fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50 py-4">
+                <footer className="fixed bottom-0 left-0 right-0 z-50 py-4">
                     <div className="w-[90%] md:w-1/2 mx-auto">
                         <PromptInputProvider>
-                            <PromptInput globalDrop multiple onSubmit={handleSubmit}>
-                                <PromptInputAttachments>
-                                    {(attachment) => <PromptInputAttachment data={attachment} />}
-                                </PromptInputAttachments>
-                                <PromptInputBody>
-                                    <PromptInputTextarea ref={textareaRef} />
-                                </PromptInputBody>
-                                <PromptInputFooter>
-                                    <PromptInputTools>
-                                        {/* <PromptInputActionMenu>
-                                            <PromptInputActionMenuTrigger />
-                                            <PromptInputActionMenuContent>
-                                                <PromptInputActionAddAttachments />
-                                            </PromptInputActionMenuContent>
-                                        </PromptInputActionMenu> */}
-                                        <PromptInputButton
-                                            variant="outline"
-                                            onClick={async () => {
-                                                if (!recording) {
-                                                    await startRecording();
-                                                } else {
-                                                    const audioBlob = await stopRecordingAndGetBlob();
-                                                    // send audio to Whisper transcription API
-                                                    const formData = new FormData();
-                                                    formData.append('audio', audioBlob, 'recording.webm');
-                                                    const res = await fetch('/api/transcription', { method: 'POST', body: formData });
-                                                    const data = await res.json();
-                                                    const text = data.text || '';
-                                                    // directly send the transcribed text as a message
-                                                    if (text) {
-                                                        sendMessage({ text }, { body: { model, collection: "" } });
-                                                    }
-                                                }
-                                            }}
-                                            className='cursor-pointer'
-                                        >
-                                            {
-                                                recording ? (
-                                                    <Square className="size-4" />
-                                                    ) : (
-                                                    <MicIcon className="size-4" />
-                                                )
-                                            }
-                                        </PromptInputButton>
-                                        {/* <PromptInputButton>
-                                            <GlobeIcon size={16} /> <span>Search</span>
-                                        </PromptInputButton> */}
-                                        {/* <ModelSelector
-                                            onOpenChange={setModelSelectorOpen}
-                                            open={modelSelectorOpen}
-                                        >
-                                            <ModelSelectorTrigger asChild>
-                                                <PromptInputButton>
-                                                    {
-                                                        selectedModelData?.chefSlug && (
-                                                            <ModelSelectorLogo provider={selectedModelData.chefSlug} />
-                                                        )
-                                                    }
-                                                    {
-                                                        selectedModelData?.name && (
-                                                            <ModelSelectorName>{selectedModelData.name}</ModelSelectorName>
-                                                        )
-                                                    }
-                                                </PromptInputButton>
-                                            </ModelSelectorTrigger>
-                                            <ModelSelectorContent>
-                                                <ModelSelectorInput placeholder="Search models..." />
-                                                <ModelSelectorList>
-                                                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                                                    {["OpenAI", "Anthropic", "Google"].map((chef) => (
-                                                        <ModelSelectorGroup heading={chef} key={chef}>
-                                                            {
-                                                                models
-                                                                .filter((m) => m.chef === chef)
-                                                                .map((m) => (
-                                                                    <ModelSelectorItem
-                                                                        key={m.id}
-                                                                        onSelect={() => {
-                                                                            setModel(m.id);
-                                                                            setModelSelectorOpen(false);
-                                                                        }}
-                                                                        value={m.id}
-                                                                    >
-                                                                        <ModelSelectorLogo provider={m.chefSlug} />
-                                                                        <ModelSelectorName>{m.name}</ModelSelectorName>
-                                                                        <ModelSelectorLogoGroup>
-                                                                            {
-                                                                                m.providers.map((provider) => (
-                                                                                    <ModelSelectorLogo
-                                                                                        key={provider}
-                                                                                        provider={provider}
-                                                                                    />
-                                                                                ))
-                                                                            }
-                                                                        </ModelSelectorLogoGroup>
-                                                                        {
-                                                                            model === m.id ? (
-                                                                                <CheckIcon className="ml-auto size-4" />
-                                                                            )
-                                                                            : (<div className="ml-auto size-4" />)
-                                                                        }
-                                                                    </ModelSelectorItem>
-                                                                ))
-                                                            }
-                                                        </ModelSelectorGroup>
-                                                    ))}
-                                                </ModelSelectorList>
-                                            </ModelSelectorContent>
-                                        </ModelSelector> */}
-                                    </PromptInputTools>
-                                    <PromptInputSubmit
-                                        status={status}
-                                        variant="outline"
-                                        className='cursor-pointer'
-                                    />
-                                </PromptInputFooter>
-                            </PromptInput>
+                            <HausbotPromptInput
+                                onSubmit={handleSubmit}
+
+                                status={status}
+                                recording={recording}
+                                onMicClick={handleMicClick}
+                                textareaRef={textareaRef}
+                            />
                         </PromptInputProvider>
                     </div>
                 </footer>
