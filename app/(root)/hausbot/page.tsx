@@ -255,7 +255,6 @@ export default function Hausbot() {
                         <PromptInputProvider>
                             <HausbotPromptInput
                                 onSubmit={handleSubmit}
-
                                 status={status}
                                 recording={recording}
                                 onMicClick={handleMicClick}
